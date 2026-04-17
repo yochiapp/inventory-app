@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>日用品在庫管理</title>
+<meta name="apple-mobile-web-app-title" content="在庫管理">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="apple-touch-icon" href="https://i.ibb.co/Q7VN0Gt2/icon-180x180.png">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #ffffff; --bg2: #f5f5f7; --bg3: #ebebed;
+  --text: #1c1c1e; --text2: #48484a; --text3: #8e8e93;
+  --border: #e5e5ea; --border2: #c7c7cc; --r: 14px;
+  --accent: #1D9E75; --accent-bg: #E1F5EE; --accent-text: #085041;
+  --warn: #BA7517; --warn-bg: #FAEEDA; --warn-text: #633806;
+  --danger: #E24B4A; --danger-bg: #FCEBEB; --danger-text: #791F1F;
+  --border-radius-md: 10px; --border-radius-lg: 14px;
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1c1c1e; --bg2: #2c2c2e; --bg3: #3a3a3c;
+    --text: #f2f2f7; --text2: #ebebf5cc; --text3: #ebebf599;
+    --border: #38383a; --border2: #545456;
+  }
+}
+body { font-family: var(--font-sans); background: var(--bg3); height: 100dvh; display: flex; justify-content: center; align-items: stretch; overflow: hidden; }
+#app { max-width: 390px; width: 100%; height: 100dvh; background: var(--bg3); display: flex; flex-direction: column; position: relative; overflow: hidden; padding-bottom: env(safe-area-inset-bottom); }
+.header { background: var(--bg); padding: 20px 16px 12px; border-bottom: 0.5px solid var(--border); }
+.header-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.app-title { font-size: 20px; font-weight: 500; color: var(--text); }
+.sync-row { display: flex; align-items: center; gap: 6px; margin-top: 2px; }
+.sync-dot { width: 7px; height: 7px; border-radius: 50%; background: #ccc; }
+.sync-dot.ok { background: var(--accent); }
+.sync-dot.syncing { background: var(--warn); animation: pulse 1s infinite; }
+.sync-dot.error { background: var(--danger); }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+.sync-label { font-size: 11px; color: var(--text3); }
+.add-btn { width: 36px; height: 36px; border-radius: 50%; background: var(--accent); border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; color: white; font-size: 22px; line-height: 1; transition: transform 0.1s, opacity 0.1s; flex-shrink: 0; }
+.add-btn:hover { opacity: 0.85; } .add-btn:active { transform: scale(0.94); }
+.stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.stat-card { background: var(--bg2); border-radius: var(--border-radius-md); padding: 10px 8px; text-align: center; }
+.stat-num { font-size: 20px; font-weight: 500; color: var(--text); }
+.stat-label { font-size: 11px; color: var(--text3); margin-top: 2px; }
+.stat-num.warn { color: var(--warn); } .stat-num.danger { color: var(--danger); }
+.filter-tabs { display: flex; gap: 6px; padding: 12px 16px 0; background: var(--bg); overflow-x: auto; scrollbar-width: none; }
+.filter-tabs::-webkit-scrollbar { display: none; }
+.tab-btn { padding: 6px 14px; border-radius: 20px; border: 0.5px solid var(--border2); background: transparent; cursor: pointer; font-size: 13px; color: var(--text2); white-space: nowrap; transition: all 0.15s; }
+.tab-btn.active { background: var(--accent); border-color: transparent; color: white; font-weight: 500; }
+.search-bar { padding: 10px 16px 12px; background: var(--bg); border-bottom: 0.5px solid var(--border); }
+.search-bar input { width: 100%; padding: 8px 12px; border: 0.5px solid var(--border2); border-radius: var(--border-radius-md); font-size: 14px; background: var(--bg2); color: var(--text); outline: none; }
+.list-area { flex: 1; overflow-y: auto; padding: 12px 16px; display: flex; flex-direction: column; gap: 8px; scrollbar-width: thin; }
+.item-card { background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--r); padding: 12px 14px; display: flex; align-items: center; gap: 12px; transition: border-color 0.15s; cursor: pointer; }
+.item-card:hover { border-color: var(--border2); }
+.item-card.low { border-left: 3px solid var(--warn); }
+.item-card.empty { border-left: 3px solid var(--danger); }
+.item-icon { width: 40px; height: 40px; border-radius: var(--border-radius-md); display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
+.item-info { flex: 1; min-width: 0; }
+.item-name { font-size: 15px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.item-meta { font-size: 12px; color: var(--text3); margin-top: 2px; }
+.item-right { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.stock-badge { font-size: 13px; font-weight: 500; padding: 3px 10px; border-radius: 20px; }
+.stock-badge.ok { background: var(--accent-bg); color: var(--accent-text); }
+.stock-badge.low { background: var(--warn-bg); color: var(--warn-text); }
+.stock-badge.empty { background: var(--danger-bg); color: var(--danger-text); }
+.qty-ctrl { display: flex; align-items: center; gap: 4px; }
+.qty-btn { width: 26px; height: 26px; border-radius: 50%; border: 0.5px solid var(--border2); background: var(--bg2); cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; color: var(--text2); transition: background 0.1s; line-height: 1; }
+.qty-btn:hover { background: var(--bg3); }
+.qty-num { font-size: 14px; font-weight: 500; min-width: 24px; text-align: center; color: var(--text); }
+.empty-state { text-align: center; padding: 48px 16px; color: var(--text3); font-size: 14px; }
+.modal-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: flex-end; overflow: hidden; z-index: 10; }
+.modal-overlay.hidden { display: none; }
+.modal { background: var(--bg); border-radius: 20px 20px 0 0; padding: 20px 16px; width: 100%; border-top: 0.5px solid var(--border); }
+.modal-title { font-size: 17px; font-weight: 500; margin-bottom: 16px; color: var(--text); }
+.form-group { margin-bottom: 12px; }
+.form-label { font-size: 12px; color: var(--text2); margin-bottom: 4px; display: block; }
+.form-input { width: 100%; padding: 10px 12px; border: 0.5px solid var(--border2); border-radius: var(--border-radius-md); font-size: 15px; background: var(--bg2); color: var(--text); outline: none; }
+.cat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 4px; }
+.cat-btn { padding: 8px 4px; border-radius: var(--border-radius-md); border: 0.5px solid var(--border2); background: var(--bg2); cursor: pointer; text-align: center; font-size: 20px; transition: all 0.1s; }
+.cat-btn.selected { border-color: var(--accent); background: var(--accent-bg); }
+.cat-label { font-size: 10px; color: var(--text3); margin-top: 2px; }
+.btn-row { display: flex; gap: 8px; margin-top: 16px; }
+.btn-primary { flex: 1; padding: 12px; border-radius: var(--border-radius-md); background: var(--accent); border: none; color: white; font-size: 15px; font-weight: 500; cursor: pointer; transition: opacity 0.1s; }
+.btn-primary:hover { opacity: 0.88; }
+.btn-cancel { padding: 12px 20px; border-radius: var(--border-radius-md); background: var(--bg2); border: 0.5px solid var(--border2); color: var(--text2); font-size: 15px; cursor: pointer; }
+.detail-modal { padding: 20px 16px 24px; }
+.big-qty-ctrl { display: flex; align-items: center; gap: 16px; margin-top: 8px; }
+.big-qty-btn { width: 44px; height: 44px; border-radius: 50%; border: 0.5px solid var(--border2); background: var(--bg2); cursor: pointer; font-size: 24px; display: flex; align-items: center; justify-content: center; color: var(--text2); transition: background 0.1s; }
+.big-qty-num { font-size: 36px; font-weight: 500; color: var(--text); min-width: 60px; text-align: center; }
+.threshold-row { display: flex; justify-content: space-between; align-items: center; background: var(--bg2); border-radius: var(--border-radius-md); padding: 10px 14px; margin-top: 8px; }
+.danger-btn { padding: 12px; border-radius: var(--border-radius-md); background: transparent; border: 0.5px solid var(--danger); color: var(--danger); font-size: 14px; cursor: pointer; margin-top: 12px; width: 100%; }
+.toast { position: absolute; top: 16px; left: 50%; transform: translateX(-50%); background: var(--bg); border: 0.5px solid var(--border2); border-radius: var(--border-radius-md); padding: 10px 18px; font-size: 13px; color: var(--text2); white-space: nowrap; z-index: 99; box-shadow: 0 2px 8px rgba(0,0,0,0.08); opacity: 0; transition: opacity 0.2s; pointer-events: none; }
+.toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="header">
+    <div class="header-top">
+      <div>
+        <div class="app-title">日用品在庫管理</div>
+        <div class="sync-row">
+          <div class="sync-dot" id="sync-dot"></div>
+          <span class="sync-label" id="sync-label">読み込み中...</span>
+        </div>
+      </div>
+      <button class="add-btn" onclick="openAddModal()">+</button>
+    </div>
+    <div class="stats-row">
+      <div class="stat-card"><div class="stat-num" id="stat-total">—</div><div class="stat-label">アイテム</div></div>
+      <div class="stat-card"><div class="stat-num warn" id="stat-low">—</div><div class="stat-label">残り少ない</div></div>
+      <div class="stat-card"><div class="stat-num danger" id="stat-empty">—</div><div class="stat-label">在庫切れ</div></div>
+    </div>
+  </div>
+  <div class="filter-tabs" id="filter-tabs"></div>
+  <div class="search-bar"><input type="text" placeholder="アイテムを検索..." id="search-input" oninput="render()" /></div>
+  <div class="list-area" id="list-area"><div class="empty-state">データを読み込み中...</div></div>
+
+  <div class="modal-overlay hidden" id="add-modal">
+    <div class="modal">
+      <div class="modal-title" id="add-modal-title">アイテムを追加</div>
+      <div class="form-group">
+        <label class="form-label">カテゴリ</label>
+        <div class="cat-grid" id="cat-grid"></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">アイテム名</label>
+        <input class="form-input" type="text" id="new-name" placeholder="例: トイレットペーパー" />
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div class="form-group">
+          <label class="form-label">現在の数量</label>
+          <input class="form-input" type="number" id="new-qty" value="1" min="0" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">補充の目安</label>
+          <input class="form-input" type="number" id="new-thresh" value="2" min="1" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">単位</label>
+        <input class="form-input" type="text" id="new-unit" placeholder="例: 個、本、袋" />
+      </div>
+      <div class="btn-row">
+        <button class="btn-cancel" onclick="closeModals()">キャンセル</button>
+        <button class="btn-primary" id="add-modal-btn" onclick="saveItem()">追加する</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay hidden" id="detail-modal">
+    <div class="modal detail-modal"><div id="detail-content"></div></div>
+  </div>
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+const CATS = [
+  { id:'all', label:'すべて', icon:'📋' },
+  { id:'toilet', label:'トイレ', icon:'🧻' },
+  { id:'bath', label:'バス', icon:'🛁' },
+  { id:'kitchen', label:'台所', icon:'🍳' },
+  { id:'clean', label:'掃除', icon:'🧹' },
+  { id:'food', label:'食料', icon:'🥫' },
+  { id:'health', label:'医療', icon:'💊' },
+  { id:'other', label:'その他', icon:'📦' },
+];
+const CAT_BG = { toilet:'#E1F5EE', bath:'#E6F1FB', kitchen:'#FAEEDA', clean:'#EEEDFE', food:'#EAF3DE', health:'#FAECE7', other:'#F1EFE8' };
+const STORAGE_KEY = 'household-inventory-v1';
+let items = [], activeFilter = 'all', selectedCat = 'other', editingId = null, loaded = false;
+
+function getCat(id) { return CATS.find(c => c.id === id) || CATS[CATS.length-1]; }
+function getStatus(item) { return item.qty === 0 ? 'empty' : item.qty < item.threshold ? 'low' : 'ok'; }
+function statusLabel(s) { return s==='empty'?'在庫切れ':s==='low'?'残り少ない':'在庫あり'; }
+
+function setSyncStatus(state, label) {
+  document.getElementById('sync-dot').className = 'sync-dot ' + state;
+  document.getElementById('sync-label').textContent = label;
+}
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+async function loadData() {
+  setSyncStatus('syncing', '読み込み中...');
+  try {
+    const result = await window.storage.get(STORAGE_KEY, true);
+    if (result && result.value) {
+      items = JSON.parse(result.value).items || [];
+    } else {
+      items = getDefaultItems();
+      await saveData(false);
+    }
+    loaded = true;
+    setSyncStatus('ok', '同期済み（共有データ）');
+    render();
+  } catch(e) {
+    setSyncStatus('error', 'ローカル保存モード');
+    try { const l = localStorage.getItem(STORAGE_KEY+'-local'); items = l ? JSON.parse(l) : getDefaultItems(); } catch(_) { items = getDefaultItems(); }
+    loaded = true; render();
+  }
+}
+
+async function saveData(toast=true) {
+  const payload = JSON.stringify({ items, updatedAt: Date.now() });
+  setSyncStatus('syncing', '保存中...');
+  try {
+    await window.storage.set(STORAGE_KEY, payload, true);
+    setSyncStatus('ok', '同期済み（共有データ）');
+    if (toast) showToast('保存しました');
+    try { localStorage.setItem(STORAGE_KEY+'-local', JSON.stringify(items)); } catch(_) {}
+  } catch(e) {
+    setSyncStatus('error', 'ローカル保存モード');
+    try { localStorage.setItem(STORAGE_KEY+'-local', JSON.stringify(items)); } catch(_) {}
+    if (toast) showToast('保存しました');
+  }
+}
+
+function getDefaultItems() {
+  return [
+    { id:1, name:'トイレットペーパー', cat:'toilet', qty:3, threshold:4, unit:'ロール' },
+    { id:2, name:'ボディソープ', cat:'bath', qty:1, threshold:2, unit:'本' },
+    { id:3, name:'台所用洗剤', cat:'kitchen', qty:0, threshold:1, unit:'本' },
+    { id:4, name:'ゴミ袋（45L）', cat:'clean', qty:8, threshold:5, unit:'枚' },
+    { id:5, name:'シャンプー', cat:'bath', qty:2, threshold:2, unit:'本' },
+    { id:6, name:'米', cat:'food', qty:2, threshold:3, unit:'kg' },
+    { id:7, name:'常備薬', cat:'health', qty:5, threshold:3, unit:'錠' },
+  ];
+}
+
+function updateStats() {
+  document.getElementById('stat-total').textContent = items.length;
+  document.getElementById('stat-low').textContent = items.filter(i => getStatus(i)==='low').length;
+  document.getElementById('stat-empty').textContent = items.filter(i => getStatus(i)==='empty').length;
+}
+
+function buildTabs() {
+  document.getElementById('filter-tabs').innerHTML = CATS.map(c => {
+    const count = c.id==='all' ? items.length : items.filter(i => i.cat===c.id).length;
+    return `<button class="tab-btn${activeFilter===c.id?' active':''}" onclick="setFilter('${c.id}')">${c.icon} ${c.label}${count>0?' '+count:''}</button>`;
+  }).join('');
+}
+
+function setFilter(f) { activeFilter = f; render(); }
+
+function render() {
+  if (!loaded) return;
+  updateStats(); buildTabs();
+  const q = document.getElementById('search-input').value.toLowerCase();
+  let filtered = items.filter(i => (activeFilter==='all'||i.cat===activeFilter) && i.name.toLowerCase().includes(q));
+  filtered.sort((a,b) => ({empty:0,low:1,ok:2})[getStatus(a)] - ({empty:0,low:1,ok:2})[getStatus(b)]);
+  const la = document.getElementById('list-area');
+  if (!filtered.length) { la.innerHTML='<div class="empty-state">アイテムが見つかりません</div>'; return; }
+  la.innerHTML = filtered.map(item => {
+    const s = getStatus(item), cat = getCat(item.cat);
+    return `<div class="item-card ${s}" onclick="openDetail(${item.id})">
+      <div class="item-icon" style="background:${CAT_BG[item.cat]||'#F1EFE8'}">${cat.icon}</div>
+      <div class="item-info">
+        <div class="item-name">${item.name}</div>
+        <div class="item-meta">${cat.label} · 目安: ${item.threshold}${item.unit}</div>
+      </div>
+      <div class="item-right">
+        <span class="stock-badge ${s}">${statusLabel(s)}</span>
+        <div class="qty-ctrl" onclick="event.stopPropagation()">
+          <button class="qty-btn" onclick="changeQty(${item.id},-1)">−</button>
+          <span class="qty-num">${item.qty}<span style="font-size:11px;color:var(--text3)"> ${item.unit}</span></span>
+          <button class="qty-btn" onclick="changeQty(${item.id},1)">+</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function changeQty(id, d) {
+  const item = items.find(i => i.id===id);
+  if (!item) return;
+  item.qty = Math.max(0, item.qty + d);
+  render(); await saveData(false);
+}
+
+function openAddModal(id=null) {
+  editingId = id;
+  if (id) {
+    const item = items.find(i => i.id===id); if (!item) return;
+    selectedCat = item.cat;
+    document.getElementById('new-name').value = item.name;
+    document.getElementById('new-qty').value = item.qty;
+    document.getElementById('new-thresh').value = item.threshold;
+    document.getElementById('new-unit').value = item.unit;
+    document.getElementById('add-modal-title').textContent = 'アイテムを編集';
+    document.getElementById('add-modal-btn').textContent = '保存する';
+  } else {
+    selectedCat = 'other';
+    document.getElementById('new-name').value = '';
+    document.getElementById('new-qty').value = '1';
+    document.getElementById('new-thresh').value = '2';
+    document.getElementById('new-unit').value = '個';
+    document.getElementById('add-modal-title').textContent = 'アイテムを追加';
+    document.getElementById('add-modal-btn').textContent = '追加する';
+  }
+  buildCatGrid(); closeModals();
+  document.getElementById('add-modal').classList.remove('hidden');
+}
+
+function buildCatGrid() {
+  document.getElementById('cat-grid').innerHTML = CATS.filter(c=>c.id!=='all').map(c =>
+    `<button class="cat-btn${selectedCat===c.id?' selected':''}" onclick="selectCat('${c.id}')">
+      <div>${c.icon}</div><div class="cat-label">${c.label}</div>
+    </button>`
+  ).join('');
+}
+
+function selectCat(id) { selectedCat = id; buildCatGrid(); }
+
+async function saveItem() {
+  const name = document.getElementById('new-name').value.trim();
+  if (!name) { document.getElementById('new-name').focus(); return; }
+  const qty = parseInt(document.getElementById('new-qty').value)||0;
+  const threshold = parseInt(document.getElementById('new-thresh').value)||1;
+  const unit = document.getElementById('new-unit').value.trim()||'個';
+  if (editingId) {
+    const item = items.find(i => i.id===editingId);
+    if (item) { item.name=name; item.cat=selectedCat; item.qty=qty; item.threshold=threshold; item.unit=unit; }
+  } else {
+    items.push({ id:Date.now(), name, cat:selectedCat, qty, threshold, unit });
+  }
+  closeModals(); render(); await saveData(true);
+}
+
+function openDetail(id) {
+  const item = items.find(i => i.id===id); if (!item) return;
+  const cat = getCat(item.cat), s = getStatus(item);
+  document.getElementById('detail-content').innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">
+      <div>
+        <span style="font-size:36px;display:block;margin-bottom:6px">${cat.icon}</span>
+        <div style="font-size:22px;font-weight:500;color:var(--text)">${item.name}</div>
+        <div style="font-size:13px;color:var(--text3);margin-top:2px">${cat.label}</div>
+      </div>
+      <span class="stock-badge ${s}" style="margin-top:4px">${statusLabel(s)}</span>
+    </div>
+    <div style="margin-top:20px">
+      <div style="font-size:12px;color:var(--text3);margin-bottom:8px">現在の数量</div>
+      <div class="big-qty-ctrl">
+        <button class="big-qty-btn" onclick="detailChangeQty(${item.id},-1)">−</button>
+        <span class="big-qty-num" id="dqty">${item.qty}</span>
+        <button class="big-qty-btn" onclick="detailChangeQty(${item.id},1)">+</button>
+        <span style="font-size:16px;color:var(--text2)">${item.unit}</span>
+      </div>
+    </div>
+    <div style="margin-top:16px">
+      <div class="threshold-row">
+        <div>
+          <div style="font-size:14px;font-weight:500;color:var(--text)">補充の目安</div>
+          <div style="font-size:13px;color:var(--text2);margin-top:2px">${item.threshold}${item.unit}を下回ると警告</div>
+        </div>
+        <div style="font-size:20px;font-weight:500;color:var(--text)">${item.threshold}<span style="font-size:13px;color:var(--text3)"> ${item.unit}</span></div>
+      </div>
+    </div>
+    <div class="btn-row" style="margin-top:16px">
+      <button class="btn-cancel" onclick="closeModals()">閉じる</button>
+      <button class="btn-primary" onclick="closeModals();openAddModal(${item.id})">編集する</button>
+    </div>
+    <button class="danger-btn" onclick="deleteItem(${item.id})">このアイテムを削除</button>
+  `;
+  document.getElementById('detail-modal').classList.remove('hidden');
+}
+
+async function detailChangeQty(id, d) {
+  const item = items.find(i => i.id===id); if (!item) return;
+  item.qty = Math.max(0, item.qty + d);
+  const el = document.getElementById('dqty'); if (el) el.textContent = item.qty;
+  render(); await saveData(false);
+}
+
+async function deleteItem(id) {
+  if (!confirm('このアイテムを削除しますか？')) return;
+  items = items.filter(i => i.id!==id);
+  closeModals(); render(); await saveData(true); showToast('削除しました');
+}
+
+function closeModals() {
+  document.getElementById('add-modal').classList.add('hidden');
+  document.getElementById('detail-modal').classList.add('hidden');
+}
+
+loadData();
+setInterval(async () => {
+  if (!loaded) return;
+  try {
+    const result = await window.storage.get(STORAGE_KEY, true);
+    if (result && result.value) {
+      const parsed = JSON.parse(result.value);
+      if ((parsed.updatedAt||0) > (window._lastSaved||0)) {
+        items = parsed.items||[]; window._lastSaved = parsed.updatedAt; render();
+      }
+    }
+  } catch(_) {}
+}, 15000);
+</script>
+</body>
+</html>
