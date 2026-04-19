@@ -158,6 +158,27 @@ body { font-family: var(--font-sans); background: var(--bg3); height: 100dvh; di
 </div>
 
 <script>
+// ========== Supabase設定 ==========
+const SUPABASE_URL = 'https://knowkkwnzxhcdfvsrsgi.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_d5eWirEqtJrgJd1f22g5Ig_Y8PD1Fp1';
+
+async function sbFetch(path, options = {}) {
+  const res = await fetch(SUPABASE_URL + path, {
+    ...options,
+    headers: {
+      'apikey': SUPABASE_KEY,
+      'Authorization': 'Bearer ' + SUPABASE_KEY,
+      'Content-Type': 'application/json',
+      'Prefer': 'return=representation',
+      ...(options.headers || {})
+    }
+  });
+  if (!res.ok) throw new Error(await res.text());
+  const text = await res.text();
+  return text ? JSON.parse(text) : null;
+}
+
+// ========== アプリ ==========
 const CATS = [
   { id:'all', label:'すべて', icon:'📋' },
   { id:'toilet', label:'トイレ', icon:'🧻' },
@@ -169,8 +190,7 @@ const CATS = [
   { id:'other', label:'その他', icon:'📦' },
 ];
 const CAT_BG = { toilet:'#E1F5EE', bath:'#E6F1FB', kitchen:'#FAEEDA', clean:'#EEEDFE', food:'#EAF3DE', health:'#FAECE7', other:'#F1EFE8' };
-const STORAGE_KEY = 'household-inventory-v1';
-let items = [], activeFilter = 'all', selectedCat = 'other', editingId = null, loaded = false;
+let items = [], activeFilter = 'all', selectedCat = 'other', editingId = null, loaded = false, rowId = null;
 
 function getCat(id) { return CATS.find(c => c.id === id) || CATS[CATS.length-1]; }
 function getStatus(item) { return item.qty === 0 ? 'empty' : item.qty < item.threshold ? 'low' : 'ok'; }
@@ -189,35 +209,42 @@ function showToast(msg) {
 async function loadData() {
   setSyncStatus('syncing', '読み込み中...');
   try {
-    const result = await window.storage.get(STORAGE_KEY, true);
-    if (result && result.value) {
-      items = JSON.parse(result.value).items || [];
+    const data = await sbFetch('/rest/v1/inventory?select=*&limit=1');
+    if (data && data.length > 0) {
+      rowId = data[0].id;
+      items = data[0].items || [];
     } else {
       items = getDefaultItems();
-      await saveData(false);
+      const created = await sbFetch('/rest/v1/inventory', {
+        method: 'POST',
+        body: JSON.stringify({ items })
+      });
+      if (created && created.length > 0) rowId = created[0].id;
     }
     loaded = true;
     setSyncStatus('ok', '同期済み（共有データ）');
     render();
   } catch(e) {
-    setSyncStatus('error', 'ローカル保存モード');
-    try { const l = localStorage.getItem(STORAGE_KEY+'-local'); items = l ? JSON.parse(l) : getDefaultItems(); } catch(_) { items = getDefaultItems(); }
-    loaded = true; render();
+    setSyncStatus('error', '接続エラー');
+    console.error(e);
+    items = getDefaultItems();
+    loaded = true;
+    render();
   }
 }
 
 async function saveData(toast=true) {
-  const payload = JSON.stringify({ items, updatedAt: Date.now() });
   setSyncStatus('syncing', '保存中...');
   try {
-    await window.storage.set(STORAGE_KEY, payload, true);
+    await sbFetch('/rest/v1/inventory?id=eq.' + rowId, {
+      method: 'PATCH',
+      body: JSON.stringify({ items, updated_at: new Date().toISOString() })
+    });
     setSyncStatus('ok', '同期済み（共有データ）');
     if (toast) showToast('保存しました');
-    try { localStorage.setItem(STORAGE_KEY+'-local', JSON.stringify(items)); } catch(_) {}
   } catch(e) {
-    setSyncStatus('error', 'ローカル保存モード');
-    try { localStorage.setItem(STORAGE_KEY+'-local', JSON.stringify(items)); } catch(_) {}
-    if (toast) showToast('保存しました');
+    setSyncStatus('error', '保存エラー');
+    console.error(e);
   }
 }
 
@@ -391,14 +418,12 @@ function closeModals() {
 
 loadData();
 setInterval(async () => {
-  if (!loaded) return;
+  if (!loaded || !rowId) return;
   try {
-    const result = await window.storage.get(STORAGE_KEY, true);
-    if (result && result.value) {
-      const parsed = JSON.parse(result.value);
-      if ((parsed.updatedAt||0) > (window._lastSaved||0)) {
-        items = parsed.items||[]; window._lastSaved = parsed.updatedAt; render();
-      }
+    const data = await sbFetch('/rest/v1/inventory?id=eq.' + rowId + '&select=*');
+    if (data && data.length > 0) {
+      items = data[0].items || [];
+      render();
     }
   } catch(_) {}
 }, 15000);
