@@ -2,14 +2,14 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>日用品在庫管理</title>
 <meta name="apple-mobile-web-app-title" content="在庫管理">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <link rel="apple-touch-icon" href="icon-180x180.png">
 <style>
-* { box-sizing: border-box; margin: 0; padding: 0; }
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 :root {
   --bg: #ffffff; --bg2: #f5f5f7; --bg3: #ebebed;
   --text: #1c1c1e; --text2: #48484a; --text3: #8e8e93;
@@ -19,6 +19,9 @@
   --danger: #E24B4A; --danger-bg: #FCEBEB; --danger-text: #791F1F;
   --border-radius-md: 10px; --border-radius-lg: 14px;
   --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --tab-h: 56px;
+  --safe-bottom: env(safe-area-inset-bottom);
+  --safe-top: env(safe-area-inset-top);
 }
 @media (prefers-color-scheme: dark) {
   :root {
@@ -27,9 +30,40 @@
     --border: #38383a; --border2: #545456;
   }
 }
-body { font-family: var(--font-sans); background: var(--bg3); height: 100dvh; display: flex; justify-content: center; align-items: stretch; overflow: hidden; }
-#app { max-width: 390px; width: 100%; height: 100dvh; background: var(--bg3); display: flex; flex-direction: column; position: relative; overflow: hidden; padding-bottom: env(safe-area-inset-bottom); }
-.header { background: var(--bg); padding: 20px 16px 12px; border-bottom: 0.5px solid var(--border); }
+
+/* ===== iOS fullscreen fix ===== */
+html { height: -webkit-fill-available; }
+body {
+  font-family: var(--font-sans);
+  background: var(--bg3);
+  height: 100dvh;
+  min-height: -webkit-fill-available;
+  display: flex;
+  justify-content: center;
+  align-items: stretch;
+  overflow: hidden;
+  position: fixed;
+  width: 100%;
+  top: 0; left: 0;
+}
+
+#app {
+  max-width: 390px;
+  width: 100%;
+  height: 100%;
+  background: var(--bg3);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+}
+
+/* ===== ページコンテナ ===== */
+.page { display: none; flex-direction: column; flex: 1; overflow: hidden; }
+.page.active { display: flex; }
+
+/* ===== ヘッダー ===== */
+.header { background: var(--bg); padding: 0 16px 12px; border-bottom: 0.5px solid var(--border); padding-top: max(20px, var(--safe-top)); }
 .header-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
 .app-title { font-size: 20px; font-weight: 500; color: var(--text); }
 .sync-row { display: flex; align-items: center; gap: 6px; margin-top: 2px; }
@@ -46,12 +80,16 @@ body { font-family: var(--font-sans); background: var(--bg3); height: 100dvh; di
 .stat-num { font-size: 20px; font-weight: 500; color: var(--text); }
 .stat-label { font-size: 11px; color: var(--text3); margin-top: 2px; }
 .stat-num.warn { color: var(--warn); } .stat-num.danger { color: var(--danger); }
+
+/* ===== フィルタータブ ===== */
 .filter-tabs { display: flex; gap: 6px; padding: 12px 16px 0; background: var(--bg); overflow-x: auto; scrollbar-width: none; }
 .filter-tabs::-webkit-scrollbar { display: none; }
 .tab-btn { padding: 6px 14px; border-radius: 20px; border: 0.5px solid var(--border2); background: transparent; cursor: pointer; font-size: 13px; color: var(--text2); white-space: nowrap; transition: all 0.15s; }
 .tab-btn.active { background: var(--accent); border-color: transparent; color: white; font-weight: 500; }
 .search-bar { padding: 10px 16px 12px; background: var(--bg); border-bottom: 0.5px solid var(--border); }
 .search-bar input { width: 100%; padding: 8px 12px; border: 0.5px solid var(--border2); border-radius: var(--border-radius-md); font-size: 14px; background: var(--bg2); color: var(--text); outline: none; }
+
+/* ===== リスト ===== */
 .list-area { flex: 1; overflow-y: auto; padding: 12px 16px; display: flex; flex-direction: column; gap: 8px; scrollbar-width: thin; }
 .item-card { background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--r); padding: 12px 14px; display: flex; align-items: center; gap: 12px; transition: border-color 0.15s; cursor: pointer; }
 .item-card:hover { border-color: var(--border2); }
@@ -71,9 +109,39 @@ body { font-family: var(--font-sans); background: var(--bg3); height: 100dvh; di
 .qty-btn:hover { background: var(--bg3); }
 .qty-num { font-size: 14px; font-weight: 500; min-width: 24px; text-align: center; color: var(--text); }
 .empty-state { text-align: center; padding: 48px 16px; color: var(--text3); font-size: 14px; }
+
+/* ===== ボトムナビ ===== */
+.bottom-nav {
+  background: var(--bg);
+  border-top: 0.5px solid var(--border);
+  display: flex;
+  height: calc(var(--tab-h) + var(--safe-bottom));
+  padding-bottom: var(--safe-bottom);
+  flex-shrink: 0;
+}
+.nav-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: var(--text3);
+  font-size: 10px;
+  transition: color 0.15s;
+  padding: 6px 0 0;
+}
+.nav-btn.active { color: var(--accent); }
+.nav-btn svg { width: 22px; height: 22px; }
+.nav-btn span { font-size: 10px; }
+
+/* ===== モーダル ===== */
 .modal-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: flex-end; overflow: hidden; z-index: 10; }
 .modal-overlay.hidden { display: none; }
-.modal { background: var(--bg); border-radius: 20px 20px 0 0; padding: 20px 16px; width: 100%; border-top: 0.5px solid var(--border); }
+.modal { background: var(--bg); border-radius: 20px 20px 0 0; padding: 20px 16px; width: 100%; border-top: 0.5px solid var(--border); padding-bottom: max(20px, var(--safe-bottom)); max-height: 90dvh; overflow-y: auto; }
 .modal-title { font-size: 17px; font-weight: 500; margin-bottom: 16px; color: var(--text); }
 .form-group { margin-bottom: 12px; }
 .form-label { font-size: 12px; color: var(--text2); margin-bottom: 4px; display: block; }
@@ -92,33 +160,153 @@ body { font-family: var(--font-sans); background: var(--bg3); height: 100dvh; di
 .big-qty-num { font-size: 36px; font-weight: 500; color: var(--text); min-width: 60px; text-align: center; }
 .threshold-row { display: flex; justify-content: space-between; align-items: center; background: var(--bg2); border-radius: var(--border-radius-md); padding: 10px 14px; margin-top: 8px; }
 .danger-btn { padding: 12px; border-radius: var(--border-radius-md); background: transparent; border: 0.5px solid var(--danger); color: var(--danger); font-size: 14px; cursor: pointer; margin-top: 12px; width: 100%; }
-.toast { position: absolute; top: 16px; left: 50%; transform: translateX(-50%); background: var(--bg); border: 0.5px solid var(--border2); border-radius: var(--border-radius-md); padding: 10px 18px; font-size: 13px; color: var(--text2); white-space: nowrap; z-index: 99; box-shadow: 0 2px 8px rgba(0,0,0,0.08); opacity: 0; transition: opacity 0.2s; pointer-events: none; }
+
+/* ===== トースト ===== */
+.toast { position: absolute; top: max(16px, calc(var(--safe-top) + 8px)); left: 50%; transform: translateX(-50%); background: var(--bg); border: 0.5px solid var(--border2); border-radius: var(--border-radius-md); padding: 10px 18px; font-size: 13px; color: var(--text2); white-space: nowrap; z-index: 99; box-shadow: 0 2px 8px rgba(0,0,0,0.08); opacity: 0; transition: opacity 0.2s; pointer-events: none; }
 .toast.show { opacity: 1; }
+
+/* ===== カテゴリ設定ページ ===== */
+.settings-header { background: var(--bg); padding: 0 16px 16px; border-bottom: 0.5px solid var(--border); padding-top: max(20px, var(--safe-top)); }
+.settings-title { font-size: 20px; font-weight: 500; color: var(--text); }
+.settings-subtitle { font-size: 13px; color: var(--text3); margin-top: 4px; }
+.settings-area { flex: 1; overflow-y: auto; padding: 12px 16px; display: flex; flex-direction: column; gap: 8px; }
+.settings-section-title { font-size: 13px; font-weight: 500; color: var(--text3); padding: 4px 0 6px; text-transform: uppercase; letter-spacing: 0.04em; }
+.cat-setting-card {
+  background: var(--bg);
+  border: 0.5px solid var(--border);
+  border-radius: var(--r);
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: grab;
+  transition: box-shadow 0.15s, background 0.15s;
+  user-select: none;
+  touch-action: none;
+}
+.cat-setting-card.dragging { box-shadow: 0 6px 24px rgba(0,0,0,0.13); background: var(--bg2); opacity: 0.85; cursor: grabbing; }
+.cat-setting-card.drag-over { border-color: var(--accent); }
+.drag-handle { color: var(--text3); font-size: 18px; flex-shrink: 0; line-height: 1; cursor: grab; }
+.cat-icon-display { width: 40px; height: 40px; border-radius: var(--border-radius-md); display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; }
+.cat-name-label { flex: 1; font-size: 15px; font-weight: 500; color: var(--text); }
+.cat-action-btns { display: flex; gap: 6px; }
+.cat-action-btn { width: 30px; height: 30px; border-radius: 50%; border: 0.5px solid var(--border2); background: var(--bg2); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px; transition: background 0.1s; flex-shrink: 0; }
+.cat-action-btn:hover { background: var(--bg3); }
+.cat-action-btn.del { border-color: var(--danger); color: var(--danger); }
+.add-cat-btn-card { background: var(--bg); border: 0.5px dashed var(--border2); border-radius: var(--r); padding: 14px; display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; color: var(--accent); font-size: 14px; font-weight: 500; transition: background 0.15s; }
+.add-cat-btn-card:hover { background: var(--accent-bg); }
+
+/* ===== カテゴリ編集モーダル ===== */
+.emoji-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; margin: 8px 0; max-height: 200px; overflow-y: auto; }
+.emoji-option { width: 100%; aspect-ratio: 1; display: flex; align-items: center; justify-content: center; font-size: 22px; border-radius: 10px; border: 0.5px solid var(--border2); background: var(--bg2); cursor: pointer; transition: all 0.1s; }
+.emoji-option.selected { border-color: var(--accent); background: var(--accent-bg); }
+
+/* ===== 買い物リストページ ===== */
+.shopping-header { background: var(--bg); padding: 0 16px 16px; border-bottom: 0.5px solid var(--border); padding-top: max(20px, var(--safe-top)); }
+.shopping-header-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+.shopping-title { font-size: 20px; font-weight: 500; color: var(--text); }
+.shopping-subtitle { font-size: 13px; color: var(--text3); }
+.shopping-area { flex: 1; overflow-y: auto; padding: 12px 16px; display: flex; flex-direction: column; gap: 6px; }
+.shopping-input-row { display: flex; gap: 8px; padding: 10px 16px; background: var(--bg); border-bottom: 0.5px solid var(--border); }
+.shopping-input { flex: 1; padding: 9px 12px; border: 0.5px solid var(--border2); border-radius: var(--border-radius-md); font-size: 15px; background: var(--bg2); color: var(--text); outline: none; }
+.shopping-add-btn { padding: 9px 16px; border-radius: var(--border-radius-md); background: var(--accent); border: none; color: white; font-size: 14px; font-weight: 500; cursor: pointer; flex-shrink: 0; transition: opacity 0.1s; }
+.shopping-add-btn:hover { opacity: 0.88; }
+.shopping-item { background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--r); padding: 12px 14px; display: flex; align-items: center; gap: 10px; transition: opacity 0.2s; }
+.shopping-item.done { opacity: 0.5; }
+.shopping-check { width: 24px; height: 24px; border-radius: 50%; border: 1.5px solid var(--border2); background: transparent; cursor: pointer; flex-shrink: 0; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+.shopping-check.checked { background: var(--accent); border-color: var(--accent); }
+.shopping-check.checked::after { content: '✓'; color: white; font-size: 13px; font-weight: 600; }
+.shopping-item-text { flex: 1; font-size: 15px; color: var(--text); transition: text-decoration 0.15s; }
+.shopping-item.done .shopping-item-text { text-decoration: line-through; color: var(--text3); }
+.shopping-item-del { width: 26px; height: 26px; border-radius: 50%; border: 0.5px solid var(--border2); background: var(--bg2); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px; color: var(--text3); transition: background 0.1s; flex-shrink: 0; }
+.shopping-item-del:hover { background: var(--danger-bg); color: var(--danger); border-color: var(--danger); }
+.shopping-section-label { font-size: 12px; font-weight: 500; color: var(--text3); padding: 4px 0 2px; text-transform: uppercase; letter-spacing: 0.05em; }
+.shopping-clear-btn { padding: 10px; border-radius: var(--border-radius-md); background: transparent; border: 0.5px solid var(--border2); color: var(--text3); font-size: 13px; cursor: pointer; transition: background 0.15s; }
+.shopping-clear-btn:hover { background: var(--danger-bg); color: var(--danger); border-color: var(--danger); }
+.shopping-from-stock-btn { padding: 10px 14px; border-radius: var(--border-radius-md); background: var(--accent-bg); border: none; color: var(--accent-text); font-size: 13px; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 6px; }
 </style>
 </head>
 <body>
 <div id="app">
-  <div class="header">
-    <div class="header-top">
-      <div>
-        <div class="app-title">日用品在庫管理</div>
-        <div class="sync-row">
-          <div class="sync-dot" id="sync-dot"></div>
-          <span class="sync-label" id="sync-label">読み込み中...</span>
-        </div>
-      </div>
-      <button class="add-btn" onclick="openAddModal()">+</button>
-    </div>
-    <div class="stats-row">
-      <div class="stat-card"><div class="stat-num" id="stat-total">—</div><div class="stat-label">アイテム</div></div>
-      <div class="stat-card"><div class="stat-num warn" id="stat-low">—</div><div class="stat-label">残り少ない</div></div>
-      <div class="stat-card"><div class="stat-num danger" id="stat-empty">—</div><div class="stat-label">在庫切れ</div></div>
-    </div>
-  </div>
-  <div class="filter-tabs" id="filter-tabs"></div>
-  <div class="search-bar"><input type="text" placeholder="アイテムを検索..." id="search-input" oninput="render()" /></div>
-  <div class="list-area" id="list-area"><div class="empty-state">データを読み込み中...</div></div>
 
+  <!-- ===== 在庫ページ ===== -->
+  <div class="page active" id="page-inventory">
+    <div class="header">
+      <div class="header-top">
+        <div>
+          <div class="app-title">日用品在庫管理</div>
+          <div class="sync-row">
+            <div class="sync-dot" id="sync-dot"></div>
+            <span class="sync-label" id="sync-label">読み込み中...</span>
+          </div>
+        </div>
+        <button class="add-btn" onclick="openAddModal()">+</button>
+      </div>
+      <div class="stats-row">
+        <div class="stat-card"><div class="stat-num" id="stat-total">—</div><div class="stat-label">アイテム</div></div>
+        <div class="stat-card"><div class="stat-num warn" id="stat-low">—</div><div class="stat-label">残り少ない</div></div>
+        <div class="stat-card"><div class="stat-num danger" id="stat-empty">—</div><div class="stat-label">在庫切れ</div></div>
+      </div>
+    </div>
+    <div class="filter-tabs" id="filter-tabs"></div>
+    <div class="search-bar"><input type="text" placeholder="アイテムを検索..." id="search-input" oninput="render()" /></div>
+    <div class="list-area" id="list-area"><div class="empty-state">データを読み込み中...</div></div>
+  </div>
+
+  <!-- ===== 買い物リストページ ===== -->
+  <div class="page" id="page-shopping">
+    <div class="shopping-header">
+      <div class="shopping-header-top">
+        <div class="shopping-title">🛒 買い物リスト</div>
+        <button class="shopping-from-stock-btn" onclick="addLowStockToShopping()">
+          <span>⚠️</span> 不足分を追加
+        </button>
+      </div>
+      <div class="shopping-subtitle" id="shopping-subtitle">0件</div>
+    </div>
+    <div class="shopping-input-row">
+      <input class="shopping-input" type="text" id="shopping-input" placeholder="アイテムを入力..." onkeydown="if(event.key==='Enter')addShoppingItem()" />
+      <button class="shopping-add-btn" onclick="addShoppingItem()">追加</button>
+    </div>
+    <div class="shopping-area" id="shopping-area"></div>
+  </div>
+
+  <!-- ===== カテゴリ設定ページ ===== -->
+  <div class="page" id="page-settings">
+    <div class="settings-header">
+      <div class="settings-title">カテゴリ設定</div>
+      <div class="settings-subtitle">タブをドラッグして並び替え・追加・削除できます</div>
+    </div>
+    <div class="settings-area" id="settings-area"></div>
+  </div>
+
+  <!-- ===== ボトムナビ ===== -->
+  <nav class="bottom-nav">
+    <button class="nav-btn active" id="nav-inventory" onclick="switchPage('inventory')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+        <rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>
+      </svg>
+      <span>在庫</span>
+    </button>
+    <button class="nav-btn" id="nav-shopping" onclick="switchPage('shopping')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/>
+        <line x1="3" y1="6" x2="21" y2="6"/>
+        <path d="M16 10a4 4 0 01-8 0"/>
+      </svg>
+      <span>買い物</span>
+    </button>
+    <button class="nav-btn" id="nav-settings" onclick="switchPage('settings')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="3"/>
+        <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
+      </svg>
+      <span>カテゴリ</span>
+    </button>
+  </nav>
+
+  <!-- ===== 在庫 アイテム追加/編集モーダル ===== -->
   <div class="modal-overlay hidden" id="add-modal">
     <div class="modal">
       <div class="modal-title" id="add-modal-title">アイテムを追加</div>
@@ -151,9 +339,30 @@ body { font-family: var(--font-sans); background: var(--bg3); height: 100dvh; di
     </div>
   </div>
 
+  <!-- ===== 詳細モーダル ===== -->
   <div class="modal-overlay hidden" id="detail-modal">
     <div class="modal detail-modal"><div id="detail-content"></div></div>
   </div>
+
+  <!-- ===== カテゴリ編集モーダル ===== -->
+  <div class="modal-overlay hidden" id="cat-edit-modal">
+    <div class="modal">
+      <div class="modal-title" id="cat-edit-title">カテゴリを追加</div>
+      <div class="form-group">
+        <label class="form-label">カテゴリ名</label>
+        <input class="form-input" type="text" id="cat-edit-name" placeholder="例: ペット" maxlength="10" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">アイコン</label>
+        <div class="emoji-grid" id="emoji-grid"></div>
+      </div>
+      <div class="btn-row">
+        <button class="btn-cancel" onclick="closeCatEditModal()">キャンセル</button>
+        <button class="btn-primary" id="cat-edit-btn" onclick="saveCatEdit()">追加する</button>
+      </div>
+    </div>
+  </div>
+
   <div class="toast" id="toast"></div>
 </div>
 
@@ -178,9 +387,8 @@ async function sbFetch(path, options = {}) {
   return text ? JSON.parse(text) : null;
 }
 
-// ========== アプリ ==========
-const CATS = [
-  { id:'all', label:'すべて', icon:'📋' },
+// ========== デフォルトカテゴリ ==========
+const DEFAULT_CATS = [
   { id:'toilet', label:'トイレ', icon:'🧻' },
   { id:'bath', label:'バス', icon:'🛁' },
   { id:'kitchen', label:'台所', icon:'🍳' },
@@ -189,15 +397,54 @@ const CATS = [
   { id:'health', label:'医療', icon:'💊' },
   { id:'other', label:'その他', icon:'📦' },
 ];
-const CAT_BG = { toilet:'#E1F5EE', bath:'#E6F1FB', kitchen:'#FAEEDA', clean:'#EEEDFE', food:'#EAF3DE', health:'#FAECE7', other:'#F1EFE8' };
-let items = [], activeFilter = 'all', selectedCat = 'other', editingId = null, loaded = false, rowId = null;
+const CAT_BG_DEFAULTS = {
+  toilet:'#E1F5EE', bath:'#E6F1FB', kitchen:'#FAEEDA',
+  clean:'#EEEDFE', food:'#EAF3DE', health:'#FAECE7', other:'#F1EFE8'
+};
+const CAT_BG_PALETTE = [
+  '#E1F5EE','#E6F1FB','#FAEEDA','#EEEDFE','#EAF3DE','#FAECE7','#F1EFE8',
+  '#FDE8F0','#E8F4FD','#FDF3E8','#F0EDF8','#E8FDF3','#FDE8E8','#E8E8FD'
+];
 
-function getCat(id) { return CATS.find(c => c.id === id) || CATS[CATS.length-1]; }
-function getStatus(item) { return item.qty === 0 ? 'empty' : item.qty < item.threshold ? 'low' : 'ok'; }
+// 絵文字候補リスト
+const EMOJI_OPTIONS = [
+  '🧻','🛁','🍳','🧹','🥫','💊','📦','🐾','🌿','🧴',
+  '🪥','🧼','🧽','🪣','🧺','🪴','🔦','🕯️','🧷','📎',
+  '🍶','🥤','🧃','🍵','☕','🫖','🧆','🍞','🥕','🧄',
+  '🏥','💉','🩺','🩹','🌡️','🪮','🐕','🐈','🐠','🌸',
+  '🎒','👟','🧦','👕','👔','🎽','🪑','🛋️','🛏️','🪞',
+  '💡','🔌','🔋','🖥️','📱','⌨️','🖱️','📷','🎵','🎮',
+];
+
+// ========== アプリ状態 ==========
+let items = [], userCats = null, activeFilter = 'all', selectedCat = 'other';
+let editingId = null, loaded = false, rowId = null;
+let shoppingItems = []; // { id, text, done }
+let editingCatId = null; // カテゴリ編集中のid
+let selectedEmoji = '📦';
+let dragSrcIdx = null;
+
+// ========== カテゴリ取得 ==========
+function getCats() { return userCats || DEFAULT_CATS; }
+function getAllCats() { return [{ id:'all', label:'すべて', icon:'📋' }, ...getCats()]; }
+function getCat(id) { return getCats().find(c => c.id === id) || getCats()[getCats().length-1]; }
+function getCatBg(id) { return CAT_BG_DEFAULTS[id] || '#F1EFE8'; }
+
+// ========== ページ切り替え ==========
+function switchPage(name) {
+  ['inventory','shopping','settings'].forEach(p => {
+    document.getElementById('page-'+p).classList.toggle('active', p===name);
+    document.getElementById('nav-'+p).classList.toggle('active', p===name);
+  });
+  if (name==='settings') renderSettings();
+  if (name==='shopping') renderShopping();
+}
+
+// ========== ステータス ==========
+function getStatus(item) { return item.qty===0?'empty':item.qty<item.threshold?'low':'ok'; }
 function statusLabel(s) { return s==='empty'?'在庫切れ':s==='low'?'残り少ない':'在庫あり'; }
-
 function setSyncStatus(state, label) {
-  document.getElementById('sync-dot').className = 'sync-dot ' + state;
+  document.getElementById('sync-dot').className = 'sync-dot '+state;
   document.getElementById('sync-label').textContent = label;
 }
 function showToast(msg) {
@@ -206,6 +453,7 @@ function showToast(msg) {
   setTimeout(() => t.classList.remove('show'), 2200);
 }
 
+// ========== データ読み込み ==========
 async function loadData() {
   setSyncStatus('syncing', '読み込み中...');
   try {
@@ -213,6 +461,8 @@ async function loadData() {
     if (data && data.length > 0) {
       rowId = data[0].id;
       items = data[0].items || [];
+      if (data[0].categories) userCats = data[0].categories;
+      if (data[0].shopping) shoppingItems = data[0].shopping;
     } else {
       items = getDefaultItems();
       const created = await sbFetch('/rest/v1/inventory', {
@@ -233,15 +483,20 @@ async function loadData() {
   }
 }
 
-async function saveData(toast=true) {
+async function saveData(toast=true, toastMsg='保存しました') {
   setSyncStatus('syncing', '保存中...');
   try {
     await sbFetch('/rest/v1/inventory?id=eq.' + rowId, {
       method: 'PATCH',
-      body: JSON.stringify({ items, updated_at: new Date().toISOString() })
+      body: JSON.stringify({
+        items,
+        categories: userCats,
+        shopping: shoppingItems,
+        updated_at: new Date().toISOString()
+      })
     });
     setSyncStatus('ok', '同期済み（共有データ）');
-    if (toast) showToast('保存しました');
+    if (toast) showToast(toastMsg);
   } catch(e) {
     setSyncStatus('error', '保存エラー');
     console.error(e);
@@ -260,15 +515,16 @@ function getDefaultItems() {
   ];
 }
 
+// ========== 在庫レンダリング ==========
 function updateStats() {
   document.getElementById('stat-total').textContent = items.length;
-  document.getElementById('stat-low').textContent = items.filter(i => getStatus(i)==='low').length;
-  document.getElementById('stat-empty').textContent = items.filter(i => getStatus(i)==='empty').length;
+  document.getElementById('stat-low').textContent = items.filter(i=>getStatus(i)==='low').length;
+  document.getElementById('stat-empty').textContent = items.filter(i=>getStatus(i)==='empty').length;
 }
 
 function buildTabs() {
-  document.getElementById('filter-tabs').innerHTML = CATS.map(c => {
-    const count = c.id==='all' ? items.length : items.filter(i => i.cat===c.id).length;
+  document.getElementById('filter-tabs').innerHTML = getAllCats().map(c => {
+    const count = c.id==='all' ? items.length : items.filter(i=>i.cat===c.id).length;
     return `<button class="tab-btn${activeFilter===c.id?' active':''}" onclick="setFilter('${c.id}')">${c.icon} ${c.label}${count>0?' '+count:''}</button>`;
   }).join('');
 }
@@ -279,14 +535,14 @@ function render() {
   if (!loaded) return;
   updateStats(); buildTabs();
   const q = document.getElementById('search-input').value.toLowerCase();
-  let filtered = items.filter(i => (activeFilter==='all'||i.cat===activeFilter) && i.name.toLowerCase().includes(q));
-  filtered.sort((a,b) => ({empty:0,low:1,ok:2})[getStatus(a)] - ({empty:0,low:1,ok:2})[getStatus(b)]);
+  let filtered = items.filter(i=>(activeFilter==='all'||i.cat===activeFilter)&&i.name.toLowerCase().includes(q));
+  filtered.sort((a,b)=>({empty:0,low:1,ok:2})[getStatus(a)]-({empty:0,low:1,ok:2})[getStatus(b)]);
   const la = document.getElementById('list-area');
   if (!filtered.length) { la.innerHTML='<div class="empty-state">アイテムが見つかりません</div>'; return; }
   la.innerHTML = filtered.map(item => {
     const s = getStatus(item), cat = getCat(item.cat);
     return `<div class="item-card ${s}" onclick="openDetail(${item.id})">
-      <div class="item-icon" style="background:${CAT_BG[item.cat]||'#F1EFE8'}">${cat.icon}</div>
+      <div class="item-icon" style="background:${getCatBg(item.cat)}">${cat.icon}</div>
       <div class="item-info">
         <div class="item-name">${item.name}</div>
         <div class="item-meta">${cat.label} · 目安: ${item.threshold}${item.unit}</div>
@@ -304,16 +560,16 @@ function render() {
 }
 
 async function changeQty(id, d) {
-  const item = items.find(i => i.id===id);
-  if (!item) return;
+  const item = items.find(i=>i.id===id); if (!item) return;
   item.qty = Math.max(0, item.qty + d);
   render(); await saveData(false);
 }
 
+// ========== アイテム追加/編集モーダル ==========
 function openAddModal(id=null) {
   editingId = id;
   if (id) {
-    const item = items.find(i => i.id===id); if (!item) return;
+    const item = items.find(i=>i.id===id); if (!item) return;
     selectedCat = item.cat;
     document.getElementById('new-name').value = item.name;
     document.getElementById('new-qty').value = item.qty;
@@ -322,7 +578,7 @@ function openAddModal(id=null) {
     document.getElementById('add-modal-title').textContent = 'アイテムを編集';
     document.getElementById('add-modal-btn').textContent = '保存する';
   } else {
-    selectedCat = 'other';
+    selectedCat = getCats()[0]?.id || 'other';
     document.getElementById('new-name').value = '';
     document.getElementById('new-qty').value = '1';
     document.getElementById('new-thresh').value = '2';
@@ -335,7 +591,7 @@ function openAddModal(id=null) {
 }
 
 function buildCatGrid() {
-  document.getElementById('cat-grid').innerHTML = CATS.filter(c=>c.id!=='all').map(c =>
+  document.getElementById('cat-grid').innerHTML = getCats().map(c =>
     `<button class="cat-btn${selectedCat===c.id?' selected':''}" onclick="selectCat('${c.id}')">
       <div>${c.icon}</div><div class="cat-label">${c.label}</div>
     </button>`
@@ -351,7 +607,7 @@ async function saveItem() {
   const threshold = parseInt(document.getElementById('new-thresh').value)||1;
   const unit = document.getElementById('new-unit').value.trim()||'個';
   if (editingId) {
-    const item = items.find(i => i.id===editingId);
+    const item = items.find(i=>i.id===editingId);
     if (item) { item.name=name; item.cat=selectedCat; item.qty=qty; item.threshold=threshold; item.unit=unit; }
   } else {
     items.push({ id:Date.now(), name, cat:selectedCat, qty, threshold, unit });
@@ -359,8 +615,9 @@ async function saveItem() {
   closeModals(); render(); await saveData(true);
 }
 
+// ========== 詳細モーダル ==========
 function openDetail(id) {
-  const item = items.find(i => i.id===id); if (!item) return;
+  const item = items.find(i=>i.id===id); if (!item) return;
   const cat = getCat(item.cat), s = getStatus(item);
   document.getElementById('detail-content').innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">
@@ -399,7 +656,7 @@ function openDetail(id) {
 }
 
 async function detailChangeQty(id, d) {
-  const item = items.find(i => i.id===id); if (!item) return;
+  const item = items.find(i=>i.id===id); if (!item) return;
   item.qty = Math.max(0, item.qty + d);
   const el = document.getElementById('dqty'); if (el) el.textContent = item.qty;
   render(); await saveData(false);
@@ -407,8 +664,8 @@ async function detailChangeQty(id, d) {
 
 async function deleteItem(id) {
   if (!confirm('このアイテムを削除しますか？')) return;
-  items = items.filter(i => i.id!==id);
-  closeModals(); render(); await saveData(true); showToast('削除しました');
+  items = items.filter(i=>i.id!==id);
+  closeModals(); render(); await saveData(true,'削除しました');
 }
 
 function closeModals() {
@@ -416,13 +673,212 @@ function closeModals() {
   document.getElementById('detail-modal').classList.add('hidden');
 }
 
+// ========== カテゴリ設定 ==========
+function renderSettings() {
+  const area = document.getElementById('settings-area');
+  const cats = getCats();
+  area.innerHTML = `<div class="settings-section-title">カテゴリ一覧（ドラッグで並び替え）</div>` +
+    cats.map((c,i) => `
+      <div class="cat-setting-card" draggable="true"
+        data-idx="${i}"
+        ondragstart="dragStart(event,${i})"
+        ondragover="dragOver(event,${i})"
+        ondrop="dragDrop(event,${i})"
+        ondragend="dragEnd(event)">
+        <div class="drag-handle">⠿</div>
+        <div class="cat-icon-display" style="background:${getCatBg(c.id)}">${c.icon}</div>
+        <div class="cat-name-label">${c.label}</div>
+        <div class="cat-action-btns">
+          <button class="cat-action-btn" onclick="openCatEditModal(${i})" title="編集">✏️</button>
+          ${cats.length > 1 ? `<button class="cat-action-btn del" onclick="deleteCat(${i})" title="削除">✕</button>` : ''}
+        </div>
+      </div>
+    `).join('') +
+    `<div class="add-cat-btn-card" onclick="openCatEditModal(null)">
+      <span style="font-size:18px">+</span> カテゴリを追加
+    </div>`;
+}
+
+// ===== ドラッグ&ドロップ（並び替え）=====
+function dragStart(e, idx) {
+  dragSrcIdx = idx;
+  e.currentTarget.classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'move';
+}
+function dragOver(e, idx) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  document.querySelectorAll('.cat-setting-card').forEach((el,i) => {
+    el.classList.toggle('drag-over', i===idx && idx!==dragSrcIdx);
+  });
+}
+async function dragDrop(e, idx) {
+  e.preventDefault();
+  if (dragSrcIdx === null || dragSrcIdx === idx) return;
+  const cats = getCats();
+  const moved = cats.splice(dragSrcIdx, 1)[0];
+  cats.splice(idx, 0, moved);
+  userCats = cats;
+  renderSettings();
+  render();
+  await saveData(false);
+  showToast('順番を変更しました');
+}
+function dragEnd(e) {
+  dragSrcIdx = null;
+  document.querySelectorAll('.cat-setting-card').forEach(el => {
+    el.classList.remove('dragging','drag-over');
+  });
+}
+
+// ===== カテゴリ削除 =====
+async function deleteCat(idx) {
+  const cats = getCats();
+  const cat = cats[idx];
+  const used = items.filter(i=>i.cat===cat.id).length;
+  const msg = used > 0
+    ? `「${cat.label}」カテゴリを削除しますか？\nこのカテゴリの ${used} 件のアイテムは「${getCats().find((c,i)=>i!==idx)?.label||'その他'}」に移動されます。`
+    : `「${cat.label}」カテゴリを削除しますか？`;
+  if (!confirm(msg)) return;
+  const fallback = cats.find((c,i)=>i!==idx)?.id || 'other';
+  items.forEach(item => { if (item.cat===cat.id) item.cat = fallback; });
+  cats.splice(idx, 1);
+  userCats = cats;
+  if (activeFilter === cat.id) activeFilter = 'all';
+  renderSettings(); render();
+  await saveData(true, 'カテゴリを削除しました');
+}
+
+// ===== カテゴリ追加/編集モーダル =====
+function openCatEditModal(idx) {
+  editingCatId = idx;
+  const cats = getCats();
+  const isEdit = idx !== null;
+  const cat = isEdit ? cats[idx] : null;
+  selectedEmoji = cat?.icon || '📦';
+  document.getElementById('cat-edit-title').textContent = isEdit ? 'カテゴリを編集' : 'カテゴリを追加';
+  document.getElementById('cat-edit-btn').textContent = isEdit ? '保存する' : '追加する';
+  document.getElementById('cat-edit-name').value = cat?.label || '';
+  buildEmojiGrid();
+  document.getElementById('cat-edit-modal').classList.remove('hidden');
+}
+
+function buildEmojiGrid() {
+  document.getElementById('emoji-grid').innerHTML = EMOJI_OPTIONS.map(e =>
+    `<div class="emoji-option${selectedEmoji===e?' selected':''}" onclick="selectEmoji('${e}')">${e}</div>`
+  ).join('');
+}
+
+function selectEmoji(e) { selectedEmoji = e; buildEmojiGrid(); }
+
+function closeCatEditModal() {
+  document.getElementById('cat-edit-modal').classList.add('hidden');
+}
+
+async function saveCatEdit() {
+  const name = document.getElementById('cat-edit-name').value.trim();
+  if (!name) { document.getElementById('cat-edit-name').focus(); return; }
+  const cats = getCats().map(c=>({...c}));
+  if (editingCatId !== null) {
+    cats[editingCatId].label = name;
+    cats[editingCatId].icon = selectedEmoji;
+  } else {
+    const newId = 'cat_' + Date.now();
+    cats.push({ id: newId, label: name, icon: selectedEmoji });
+  }
+  userCats = cats;
+  closeCatEditModal();
+  renderSettings(); render();
+  await saveData(true, editingCatId !== null ? 'カテゴリを編集しました' : 'カテゴリを追加しました');
+}
+
+// ========== 買い物リスト ==========
+function renderShopping() {
+  const area = document.getElementById('shopping-area');
+  const undone = shoppingItems.filter(i=>!i.done);
+  const done = shoppingItems.filter(i=>i.done);
+  document.getElementById('shopping-subtitle').textContent = `${undone.length}件`;
+
+  let html = '';
+  if (!shoppingItems.length) {
+    html = '<div class="empty-state">リストは空です<br><span style="font-size:24px;margin-top:12px;display:block">🛒</span></div>';
+  } else {
+    if (undone.length) {
+      html += undone.map(item => shoppingItemHTML(item)).join('');
+    }
+    if (done.length) {
+      html += `<div class="shopping-section-label" style="margin-top:8px">完了 (${done.length})</div>`;
+      html += done.map(item => shoppingItemHTML(item)).join('');
+      html += `<button class="shopping-clear-btn" onclick="clearDoneShopping()">完了済みを削除</button>`;
+    }
+  }
+  area.innerHTML = html;
+}
+
+function shoppingItemHTML(item) {
+  return `<div class="shopping-item${item.done?' done':''}">
+    <div class="shopping-check${item.done?' checked':''}" onclick="toggleShoppingItem('${item.id}')"></div>
+    <div class="shopping-item-text">${item.text}</div>
+    <button class="shopping-item-del" onclick="deleteShoppingItem('${item.id}')">✕</button>
+  </div>`;
+}
+
+async function addShoppingItem() {
+  const input = document.getElementById('shopping-input');
+  const text = input.value.trim();
+  if (!text) { input.focus(); return; }
+  shoppingItems.push({ id: 'si_'+Date.now(), text, done: false });
+  input.value = '';
+  renderShopping();
+  await saveData(false);
+}
+
+async function toggleShoppingItem(id) {
+  const item = shoppingItems.find(i=>i.id===id);
+  if (item) item.done = !item.done;
+  renderShopping();
+  await saveData(false);
+}
+
+async function deleteShoppingItem(id) {
+  shoppingItems = shoppingItems.filter(i=>i.id!==id);
+  renderShopping();
+  await saveData(false);
+}
+
+async function clearDoneShopping() {
+  shoppingItems = shoppingItems.filter(i=>!i.done);
+  renderShopping();
+  await saveData(false);
+  showToast('完了済みを削除しました');
+}
+
+async function addLowStockToShopping() {
+  const lowItems = items.filter(i=>getStatus(i)!=='ok');
+  if (!lowItems.length) { showToast('不足しているアイテムはありません'); return; }
+  let added = 0;
+  lowItems.forEach(item => {
+    const exists = shoppingItems.some(s=>s.text===item.name&&!s.done);
+    if (!exists) {
+      shoppingItems.push({ id:'si_'+Date.now()+'_'+Math.random(), text:item.name, done:false });
+      added++;
+    }
+  });
+  renderShopping();
+  await saveData(false);
+  showToast(added>0 ? `${added}件を追加しました` : 'すでにリストにあります');
+}
+
+// ========== 定期更新 ==========
 loadData();
 setInterval(async () => {
   if (!loaded || !rowId) return;
   try {
-    const data = await sbFetch('/rest/v1/inventory?id=eq.' + rowId + '&select=*');
+    const data = await sbFetch('/rest/v1/inventory?id=eq.'+rowId+'&select=*');
     if (data && data.length > 0) {
       items = data[0].items || [];
+      if (data[0].categories) userCats = data[0].categories;
+      if (data[0].shopping) shoppingItems = data[0].shopping;
       render();
     }
   } catch(_) {}
